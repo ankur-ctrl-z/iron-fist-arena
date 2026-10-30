@@ -1,0 +1,10 @@
+{
+  "name": "iron-fist-arena-tools",
+  "private": true,
+  "type": "module",
+  "description": "Asset tools: strip animations and shrink textures in the character models",
+  "dependencies": {
+    "@gltf-transform/core": "3.10.1",
+    "@gltf-transform/functions": "3.10.1"
+  }
+}

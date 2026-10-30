@@ -1,0 +1,277 @@
+<title>Iron Fist Arena</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: full-bleed WebGL canvas, HUD layered on top, menu screens as centered overlays. */
+:root{
+  --bg:#0a0b0f; --fg:#f2eee6; --dim:#9a968c; --line:rgba(255,255,255,.12);
+  --p1:#3aa0ff; --p2:#ff4d3a; --gold:#e8b84a; --hp:#f0dc5a; --hp2:#ff5b2e; --rage:#ff2a1a;
+  --panel:rgba(10,11,15,.78);
+  --display:'Teko','Barlow Condensed',Impact,'Arial Narrow',sans-serif;
+  --body:'Barlow','Segoe UI',Helvetica,Arial,sans-serif;
+  --cond:'Barlow Condensed','Arial Narrow',sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidden;
+  -webkit-user-select:none;user-select:none;touch-action:none;}
+#app{position:relative;width:100%;height:100%;overflow:hidden;background:#000;}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;}
+.layer{position:absolute;inset:0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px;box-sizing:border-box;}
+.layer.menu{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:linear-gradient(180deg,rgba(5,6,10,.55),rgba(5,6,10,.8));}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:.04em;margin:0;text-transform:uppercase;text-wrap:balance;}
+.brand{font-size:clamp(64px,13vw,150px);line-height:.85;font-weight:700;letter-spacing:.02em;
+  background:linear-gradient(180deg,#fff6d8 0%,#e8b84a 45%,#8a5a12 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 6px 18px rgba(0,0,0,.8));text-align:center;}
+.brand small{display:block;font-size:.22em;letter-spacing:.42em;color:#f2eee6;-webkit-text-fill-color:#f2eee6;filter:none;font-weight:500;}
+.tag{font-family:var(--cond);font-size:14px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);}
+.menu-list{display:flex;flex-direction:column;gap:6px;min-width:min(340px,90vw);}
+.menu-list button,.btn{font-family:var(--display);font-size:30px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg);
+  background:rgba(255,255,255,.04);border:1px solid var(--line);padding:6px 18px 2px;cursor:pointer;text-align:left;
+  display:flex;justify-content:space-between;align-items:center;gap:16px;transition:background .12s,border-color .12s,transform .12s;}
+.menu-list button span.hint,.btn span.hint{font-family:var(--cond);font-size:13px;letter-spacing:.14em;color:var(--dim);}
+.menu-list button.sel,.menu-list button:hover,.btn:hover,.btn.sel{background:rgba(232,184,74,.16);border-color:var(--gold);color:#fff;transform:translateX(4px);}
+.menu-list button:focus-visible,.btn:focus-visible,.card:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.small{font-size:13px;color:var(--dim);font-family:var(--cond);letter-spacing:.12em;text-transform:uppercase;}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;}
+/* Character select */
+#screen-select{justify-content:flex-end;gap:10px;background:linear-gradient(180deg,rgba(5,6,10,.15),rgba(5,6,10,.85) 70%);}
+.sel-head{position:absolute;top:max(12px,env(safe-area-inset-top,0px));left:0;right:0;text-align:center;}
+.sel-head h2{font-size:clamp(34px,6vw,64px);}
+.roster{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;width:min(980px,100%);}
+@media (max-width:720px){.roster{grid-template-columns:repeat(4,minmax(0,1fr));}}
+.card{position:relative;border:1px solid var(--line);background:var(--panel);padding:8px 8px 6px;cursor:pointer;min-width:0;transition:transform .12s;}
+.card .nm{font-family:var(--display);font-size:clamp(20px,2.6vw,30px);line-height:1;letter-spacing:.04em;text-transform:uppercase;}
+.card .st{font-family:var(--cond);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card .sw{height:5px;margin-top:6px;}
+.card.c1{box-shadow:inset 0 0 0 2px var(--p1);transform:translateY(-3px);}
+.card.c2{box-shadow:inset 0 0 0 2px var(--p2);transform:translateY(-3px);}
+.card.c1.c2{box-shadow:inset 0 0 0 2px var(--p1),inset 0 0 0 4px var(--p2);}
+.card .lock{position:absolute;top:4px;right:6px;font-family:var(--cond);font-size:11px;letter-spacing:.1em;text-transform:uppercase;}
+.card .lock.p1{color:var(--p1);} .card .lock.p2{color:var(--p2);}
+.sel-names{display:flex;justify-content:space-between;width:min(980px,100%);font-family:var(--display);font-size:clamp(26px,4vw,46px);line-height:1;}
+.sel-names .n1{color:var(--p1);} .sel-names .n2{color:var(--p2);text-align:right;}
+.sel-names .sub{display:block;font-family:var(--cond);font-size:13px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase;}
+.stages{display:flex;gap:8px;width:min(980px,100%);flex-wrap:wrap;}
+.stages .btn{font-size:22px;flex:1 1 140px;justify-content:center;}
+/* HUD */
+#hud{pointer-events:none;padding-block:max(10px,env(safe-area-inset-top,0px)) 10px;}
+.bars{display:flex;align-items:flex-start;gap:12px;}
+.pside{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;}
+.pside.right{align-items:flex-end;}
+.hpwrap{position:relative;width:100%;height:22px;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.25);
+  transform:skewX(-18deg);overflow:hidden;}
+.pside.right .hpwrap{transform:skewX(18deg);}
+.hp,.hpghost{position:absolute;top:0;bottom:0;left:0;}
+.hpghost{background:#b8231c;transition:width .55s ease-out .25s;}
+.hp{background:linear-gradient(180deg,#fff7c2,#f0dc5a 40%,#c9a52e);transition:width .08s;}
+.pside.right .hp,.pside.right .hpghost{left:auto;right:0;}
+.hpwrap.rage .hp{background:linear-gradient(180deg,#ffd5c0,#ff5b2e 40%,#b4210a);animation:ragepulse .5s infinite alternate;}
+@keyframes ragepulse{from{filter:brightness(1)}to{filter:brightness(1.6)}}
+.nameplate{display:flex;align-items:baseline;gap:10px;font-family:var(--display);font-size:28px;line-height:1;text-shadow:0 2px 6px #000;}
+.pside.right .nameplate{flex-direction:row-reverse;}
+.nameplate .ctry{font-family:var(--cond);font-size:12px;letter-spacing:.16em;color:var(--dim);}
+.wins{display:flex;gap:5px;}
+.wins i{width:12px;height:12px;border:1px solid rgba(255,255,255,.5);transform:rotate(45deg);background:rgba(0,0,0,.4);}
+.wins i.on{background:var(--gold);border-color:#fff;box-shadow:0 0 8px var(--gold);}
+.timer{font-family:var(--display);font-size:54px;line-height:1;width:92px;text-align:center;text-shadow:0 2px 10px #000;font-variant-numeric:tabular-nums;flex:0 0 auto;margin-top:-4px;}
+.timer.low{color:var(--p2);}
+.combo{position:absolute;top:92px;font-family:var(--display);font-size:38px;line-height:.9;text-shadow:0 3px 8px #000;opacity:0;transition:opacity .25s;}
+.combo b{display:block;font-size:64px;color:var(--gold);}
+.combo small{display:block;font-family:var(--cond);font-size:14px;letter-spacing:.2em;color:var(--dim);}
+.combo.l{left:max(16px,env(safe-area-inset-left,0px));} .combo.r{right:max(16px,env(safe-area-inset-right,0px));text-align:right;}
+.combo.show{opacity:1;}
+.ragetag{font-family:var(--cond);font-size:12px;letter-spacing:.26em;color:var(--rage);text-transform:uppercase;opacity:0;}
+.ragetag.on{opacity:1;animation:ragepulse .4s infinite alternate;}
+#announce{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;text-align:center;}
+#announce .big{font-family:var(--display);font-weight:700;font-size:clamp(70px,16vw,190px);line-height:.85;letter-spacing:.05em;text-transform:uppercase;
+  background:linear-gradient(180deg,#fff 0%,#ffe08a 40%,#c0761a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 2px #000) drop-shadow(0 8px 20px rgba(0,0,0,.9));animation:pop .5s cubic-bezier(.2,1.4,.3,1) both;}
+#announce .big.red{background:linear-gradient(180deg,#fff 0%,#ff7a5a 40%,#8a140a 100%);-webkit-background-clip:text;background-clip:text;}
+#announce .sub{display:block;font-family:var(--cond);font-size:clamp(14px,2.2vw,22px);letter-spacing:.4em;color:var(--fg);-webkit-text-fill-color:var(--fg);filter:none;margin-top:8px;}
+@keyframes pop{from{transform:scale(2.4);opacity:0}to{transform:scale(1);opacity:1}}
+#callout{position:absolute;left:0;right:0;top:36%;text-align:center;pointer-events:none;font-family:var(--display);font-size:clamp(28px,5vw,52px);color:var(--gold);text-shadow:0 2px 8px #000;letter-spacing:.1em;opacity:0;}
+#callout.show{animation:callout .9s ease-out both;}
+@keyframes callout{0%{opacity:0;transform:translateY(10px) scale(.8)}15%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0;transform:translateY(-12px)}}
+#vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.65) 100%);opacity:0;transition:opacity .3s;}
+#flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;}
+.training{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));font-family:var(--cond);font-size:14px;letter-spacing:.08em;background:var(--panel);border:1px solid var(--line);padding:8px 12px;min-width:220px;pointer-events:none;}
+.training b{font-family:var(--display);font-size:22px;letter-spacing:.04em;display:block;}
+.training .hist{font-family:var(--display);font-size:20px;letter-spacing:.2em;color:var(--gold);}
+.inputhint{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));font-family:var(--cond);font-size:12px;letter-spacing:.1em;color:var(--dim);text-align:right;pointer-events:none;}
+
+.hprec{position:absolute;top:0;bottom:0;left:0;background:repeating-linear-gradient(90deg,rgba(220,220,230,.55) 0 6px,rgba(170,170,185,.55) 6px 9px);transition:width .15s;}
+.pside.right .hprec{left:auto;right:0;}
+.heatwrap{position:relative;width:62%;height:7px;background:rgba(0,0,0,.6);border:1px solid rgba(120,180,255,.35);transform:skewX(-18deg);overflow:hidden;}
+.pside.right .heatwrap{transform:skewX(18deg);}
+.heat{position:absolute;top:0;bottom:0;left:0;width:100%;background:linear-gradient(90deg,#2a6cff,#6ad0ff);box-shadow:0 0 8px #3a9cff;}
+.pside.right .heat{left:auto;right:0;}
+.heatwrap.active{border-color:#ffb36a;}
+.heatwrap.active .heat{background:linear-gradient(90deg,#ff3d2e,#ffb24a,#fff0a0);box-shadow:0 0 12px #ff7a2a;animation:heatflick .18s infinite alternate;}
+.heatwrap.used .heat{width:0!important;}
+@keyframes heatflick{from{filter:brightness(1)}to{filter:brightness(1.5)}}
+.tags{display:flex;gap:10px;align-items:center;min-height:16px;}
+.pside.right .tags{flex-direction:row-reverse;}
+.ragetag,.heattag,.sstag{font-family:var(--cond);font-size:12px;letter-spacing:.26em;text-transform:uppercase;}
+.heattag{color:#ffb24a;display:none;}
+.heattag.on{display:inline;animation:ragepulse .3s infinite alternate;}
+.sstag{color:#7ad0ff;display:none;}
+.sstag.on{display:inline;}
+#namecard{position:absolute;bottom:14%;left:max(16px,env(safe-area-inset-left,0px));pointer-events:none;opacity:0;transform:translateX(-40px);transition:opacity .35s,transform .45s cubic-bezier(.2,1,.3,1);}
+#namecard.right{left:auto;right:max(16px,env(safe-area-inset-right,0px));text-align:right;transform:translateX(40px);}
+#namecard.show{opacity:1;transform:none;}
+#namecard b{display:block;font-family:var(--display);font-weight:700;font-size:clamp(60px,11vw,140px);line-height:.85;text-transform:uppercase;letter-spacing:.02em;color:#fff;text-shadow:0 6px 24px rgba(0,0,0,.8);}
+#namecard span{display:block;font-family:var(--cond);font-size:clamp(13px,1.8vw,20px);letter-spacing:.32em;text-transform:uppercase;color:var(--gold);margin-top:6px;}
+#letterbox{position:absolute;inset:0;pointer-events:none;}
+#letterbox i{position:absolute;left:0;right:0;height:11%;background:#000;}
+#letterbox i:first-child{top:0;} #letterbox i:nth-child(2){bottom:0;}
+#letterbox .rp{position:absolute;top:calc(11% + 14px);left:max(20px,env(safe-area-inset-left,0px));font-family:var(--display);font-size:30px;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:10px;}
+#letterbox .dot{width:12px;height:12px;border-radius:50%;background:#ff2a1a;animation:ragepulse .5s infinite alternate;}
+#letterbox .skip{position:absolute;bottom:calc(11% + 12px);right:max(20px,env(safe-area-inset-right,0px));font-family:var(--cond);font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);}
+.heataura{animation:none}
+/* Pause / options */
+.panel{background:var(--panel);border:1px solid var(--line);padding:20px 24px;min-width:min(420px,92vw);max-width:92vw;max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;}
+.panel h2{font-size:42px;text-align:center;}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:14px;font-family:var(--cond);font-size:17px;letter-spacing:.08em;text-transform:uppercase;padding:6px 0;border-bottom:1px solid var(--line);}
+.opt .val{display:flex;gap:4px;align-items:center;}
+.opt .val button{font-family:var(--display);font-size:20px;color:var(--fg);background:rgba(255,255,255,.05);border:1px solid var(--line);padding:2px 10px 0;cursor:pointer;min-width:40px;}
+.opt .val button.on{background:rgba(232,184,74,.2);border-color:var(--gold);}
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;font-family:var(--cond);font-size:14px;letter-spacing:.06em;}
+.keys div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed var(--line);padding:3px 0;}
+.keys kbd{font-family:var(--display);font-size:16px;color:var(--gold);}
+.keys h4{grid-column:1/-1;margin:8px 0 0;font-family:var(--display);font-size:20px;letter-spacing:.08em;}
+.movelist{display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;font-family:var(--cond);font-size:14px;letter-spacing:.04em;}
+.movelist span:nth-child(3n+1){font-family:var(--display);font-size:18px;color:var(--gold);letter-spacing:.1em;}
+.movelist span:nth-child(3n+3){color:var(--dim);white-space:nowrap;}
+/* Result */
+#screen-result h2{font-size:clamp(40px,9vw,96px);}
+#screen-result .winner{color:var(--gold);}
+/* Touch controls */
+#touch{pointer-events:none;}
+#touch .stick{position:absolute;left:max(18px,env(safe-area-inset-left,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));width:150px;height:150px;border-radius:50%;border:2px solid rgba(255,255,255,.25);background:rgba(0,0,0,.25);pointer-events:auto;touch-action:none;}
+#touch .knob{position:absolute;left:50px;top:50px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.35);}
+#touch .pad{position:absolute;right:max(18px,env(safe-area-inset-right,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(3,64px);gap:10px;pointer-events:auto;}
+#touch .pad button{width:64px;height:64px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;font-family:var(--display);font-size:24px;line-height:1;touch-action:none;padding-top:4px;}
+#touch .pad button:active{background:rgba(232,184,74,.5);}
+#touch .pad button.sm{height:40px;width:64px;border-radius:12px;font-size:16px;}
+#touch .pause{position:absolute;top:max(70px,env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));pointer-events:auto;font-family:var(--cond);font-size:13px;letter-spacing:.14em;color:#fff;background:rgba(0,0,0,.4);border:1px solid var(--line);padding:4px 10px;}
+.loader{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:40px;letter-spacing:.1em;color:var(--dim);background:#000;}
+@media (prefers-reduced-motion:reduce){#announce .big,#callout.show{animation-duration:.01s}}
+</style>
+<div id="app">
+  <canvas id="gl"></canvas>
+  <div id="loader" class="loader">LOADING ARENA</div>
+  <div id="vignette"></div>
+  <div id="flash"></div>
+
+  <div id="hud" class="layer" hidden>
+    <div class="bars">
+      <div class="pside left">
+        <div class="hpwrap" id="hp1w"><div class="hpghost" id="hp1g"></div><div class="hprec" id="hp1r"></div><div class="hp" id="hp1"></div></div>
+        <div class="heatwrap" id="heat1w"><div class="heat" id="heat1"></div></div>
+        <div class="nameplate"><span id="name1">KAZUMA</span><span class="ctry" id="ctry1">JAPAN</span><span class="wins" id="wins1"></span></div>
+        <div class="tags"><span class="ragetag" id="rage1">Rage</span><span class="heattag" id="heattag1">Heat</span><span class="sstag" id="ss1">Special Style</span></div>
+      </div>
+      <div class="timer" id="timer">60</div>
+      <div class="pside right">
+        <div class="hpwrap" id="hp2w"><div class="hpghost" id="hp2g"></div><div class="hprec" id="hp2r"></div><div class="hp" id="hp2"></div></div>
+        <div class="heatwrap" id="heat2w"><div class="heat" id="heat2"></div></div>
+        <div class="nameplate"><span id="name2">VIKTOR</span><span class="ctry" id="ctry2">RUSSIA</span><span class="wins" id="wins2"></span></div>
+        <div class="tags"><span class="ragetag" id="rage2">Rage</span><span class="heattag" id="heattag2">Heat</span><span class="sstag" id="ss2">Special Style</span></div>
+      </div>
+    </div>
+    <div class="combo l" id="combo1"><b>0</b>HITS<small>0 damage</small></div>
+    <div class="combo r" id="combo2"><b>0</b>HITS<small>0 damage</small></div>
+    <div class="training" id="trainbox" hidden><b id="tr-move">—</b><div id="tr-data"></div><div class="hist" id="tr-hist"></div></div>
+    <div class="inputhint" id="inputhint"></div>
+  </div>
+  <div id="callout"></div>
+  <div id="namecard"><b id="nc-name"></b><span id="nc-sub"></span></div>
+  <div id="letterbox" hidden><i></i><i></i><div class="rp"><span class="dot"></span>Replay</div><div class="skip">Press any button to skip</div></div>
+  <div id="announce"></div>
+
+  <div id="screen-title" class="layer menu">
+    <h1 class="brand">Iron Fist<br>Arena<small>King of the Ring</small></h1>
+    <div class="menu-list" id="title-menu">
+      <button data-act="arcade">Arcade<span class="hint">vs CPU</span></button>
+      <button data-act="versus">Versus<span class="hint">2 players</span></button>
+      <button data-act="training">Training<span class="hint">practice</span></button>
+      <button data-act="options">Options<span class="hint">controls &amp; settings</span></button>
+    </div>
+    <div class="tag" id="title-hint">Arrows / W S to choose · Enter to confirm</div>
+  </div>
+
+  <div id="screen-select" class="layer menu" hidden>
+    <div class="sel-head"><h2 id="sel-title">Choose your fighter</h2><div class="tag" id="sel-hint">P1: WASD + U · P2: Arrows + Numpad 4</div></div>
+    <div class="sel-names"><div class="n1" id="sel-n1">—<span class="sub" id="sel-s1"></span></div><div class="n2" id="sel-n2">—<span class="sub" id="sel-s2"></span></div></div>
+    <div class="roster" id="roster"></div>
+    <div class="stages" id="stages" hidden></div>
+  </div>
+
+  <div id="screen-pause" class="layer menu" hidden>
+    <div class="panel">
+      <h2>Paused</h2>
+      <div class="menu-list" id="pause-menu">
+        <button data-act="resume">Resume</button>
+        <button data-act="movelist">Move list</button>
+        <button data-act="options">Options</button>
+        <button data-act="select">Character select</button>
+        <button data-act="title">Quit to title</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-options" class="layer menu" hidden>
+    <div class="panel" id="options-panel">
+      <h2>Options</h2>
+      <div id="opts"></div>
+      <h3 style="font-size:26px;margin-top:8px">Controls</h3>
+      <div class="keys" id="keys"></div>
+      <div class="small" style="text-transform:none;letter-spacing:.04em">Character models: Mixamo X Bot and Michelle, and a Ready Player Me head, from the three.js examples collection.</div>
+      <div class="menu-list" style="margin-top:10px"><button data-act="back" id="opt-back">Back</button></div>
+    </div>
+  </div>
+
+  <div id="screen-moves" class="layer menu" hidden>
+    <div class="panel">
+      <h2 id="ml-title">Move list</h2>
+      <div class="small" style="text-align:center">Tekken notation · 1 LP · 2 RP · 3 LK · 4 RK · f forward · b back · d down · u up</div>
+      <div class="movelist" id="movelist"></div>
+      <div class="menu-list" style="margin-top:10px"><button data-act="back" id="ml-back">Back</button></div>
+    </div>
+  </div>
+
+  <div id="screen-result" class="layer menu" hidden>
+    <div class="tag" id="res-tag">Winner</div>
+    <h2 class="winner" id="res-name">Kazuma</h2>
+    <div class="small" id="res-sub"></div>
+    <div class="menu-list" id="result-menu">
+      <button data-act="rematch">Rematch</button>
+      <button data-act="select">Character select</button>
+      <button data-act="title">Main menu</button>
+    </div>
+  </div>
+
+  <div id="touch" hidden>
+    <div class="stick" id="stick"><div class="knob" id="knob"></div></div>
+    <div class="pad">
+      <button class="sm" data-b="ssu">SS up</button><button class="sm" data-b="thr">Throw</button><button class="sm" data-b="heat">Heat</button>
+      <button data-b="1">LP</button><button data-b="2">RP</button><button data-b="rage">RA</button>
+      <button data-b="3">LK</button><button data-b="4">RK</button><button data-b="ssd" class="sm" style="height:64px;border-radius:50%">SS dn</button>
+    </div>
+    <button class="pause" data-b="pause">Pause</button>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+<script src="models.js"></script>
+<script>
